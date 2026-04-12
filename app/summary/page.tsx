@@ -26,11 +26,21 @@ export default function SummaryPage() {
   async function sendWhatsApp() {
     if (!summary) return
     setSending(true)
-    // TODO (Insights & Delivery — Person B): POST to /api/notify/whatsapp
-    // Body: { summary, phone: process.env.DEMO_PHONE_NUMBER }
-    await new Promise((r) => setTimeout(r, 1200))
-    setSending(false)
-    setSent(true)
+    try {
+      const res = await fetch('/api/notify/whatsapp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ summary }),
+      })
+      if (!res.ok) {
+        const { error } = await res.json().catch(() => ({ error: 'Unknown error' }))
+        alert(`Failed to send: ${error}`)
+        return
+      }
+      setSent(true)
+    } finally {
+      setSending(false)
+    }
   }
 
   const formattedDate = new Date().toLocaleDateString('en-US', {
@@ -40,7 +50,7 @@ export default function SummaryPage() {
   })
 
   return (
-    <div className="flex flex-col min-h-screen pb-10">
+    <div className="flex flex-col min-h-dvh pb-[calc(2.5rem+env(safe-area-inset-bottom))]">
       {/* Header */}
       <div className="px-5 pt-8 pb-4 flex items-center gap-3">
         <Link

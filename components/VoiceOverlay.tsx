@@ -49,23 +49,22 @@ export default function VoiceOverlay({ onClose, onResult }: VoiceOverlayProps) {
 
   async function sendToElevenLabs(blob: Blob) {
     try {
-      // TODO (Voice & Parsing track — Person A):
-      // Replace this stub with real ElevenLabs STT call.
-      //
-      // ElevenLabs Speech-to-Text endpoint:
-      //   POST https://api.elevenlabs.io/v1/speech-to-text
-      //   Headers: xi-api-key: process.env.ELEVENLABS_API_KEY
-      //   Body: FormData with { audio: blob, model_id: "scribe_v1" }
-      //
-      // Then POST the transcript to /api/log/parse to get structured entries.
+      const form = new FormData()
+      form.append('audio', blob, 'recording.webm')
 
-      // Dummy: simulate network delay then use placeholder transcript
-      await new Promise((r) => setTimeout(r, 1200))
-      const dummyTranscript = '[ElevenLabs STT stub] Had black coffee at 8, took iron supplement at 8:15, eggs and toast'
-      setTranscript(dummyTranscript)
+      const res = await fetch('/api/stt', { method: 'POST', body: form })
+
+      if (!res.ok) {
+        const { error } = await res.json().catch(() => ({ error: 'Unknown error' }))
+        throw new Error(error)
+      }
+
+      const { transcript } = await res.json()
+      setTranscript(transcript || '(no speech detected)')
       setState('idle')
-    } catch {
-      setError('Failed to transcribe audio. Please try again.')
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Transcription failed'
+      setError(message + ' — please try again.')
       setState('idle')
     }
   }
@@ -80,7 +79,7 @@ export default function VoiceOverlay({ onClose, onResult }: VoiceOverlayProps) {
       {/* Close */}
       <button
         onClick={onClose}
-        className="absolute top-6 right-6 p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
+        className="absolute top-[calc(1.5rem+env(safe-area-inset-top))] right-6 p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
       >
         <X size={20} />
       </button>
@@ -176,7 +175,7 @@ export default function VoiceOverlay({ onClose, onResult }: VoiceOverlayProps) {
           )}
         </div>
 
-        <p className="text-white/30 text-xs text-center">
+        <p className="text-white/30 text-xs text-center pb-[env(safe-area-inset-bottom)]">
           Powered by ElevenLabs · entries parsed by Claude
         </p>
       </div>

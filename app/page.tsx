@@ -1,23 +1,49 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import { Mic, BarChart2 } from 'lucide-react'
+import { Mic, BarChart2, Plus, Dumbbell, PenLine } from 'lucide-react'
 import HealthTile from '@/components/HealthTile'
 import WorkoutCard from '@/components/WorkoutCard'
+import PlannedWorkoutCard from '@/components/PlannedWorkoutCard'
 import InsightsBanner from '@/components/InsightsBanner'
 import LogTimeline from '@/components/LogTimeline'
 import VoiceOverlay from '@/components/VoiceOverlay'
+import WorkoutGeneratorModal from '@/components/WorkoutGeneratorModal'
+import FoodTrackerTile from '@/components/FoodTrackerTile'
 import { dummyTrackerSnapshot, dummyWorkout, dummyEntries, dummyInsights } from '@/lib/dummy-data'
 import { TrackerSnapshot, Workout } from '@/lib/types'
 import { formatDate } from '@/lib/utils'
 
+interface PlannedWorkout {
+  id: string
+  workout_type: string
+  duration_mins: number
+  muscles: string[] | null
+  intensity_zone: number | null
+  equipment: string | null
+  plan_text: string
+  scheduled_date: string
+}
+
 export default function DashboardPage() {
   const [showVoice, setShowVoice] = useState(false)
+  const [showWorkoutGenerator, setShowWorkoutGenerator] = useState(false)
+  const [showActionMenu, setShowActionMenu] = useState(false)
   const [lastTranscript, setLastTranscript] = useState<string | null>(null)
   const [snap, setSnap] = useState<TrackerSnapshot>(dummyTrackerSnapshot)
   const [workout, setWorkout] = useState<Workout | null>(dummyWorkout)
   const [healthLoading, setHealthLoading] = useState(true)
+  const [plannedWorkouts, setPlannedWorkouts] = useState<PlannedWorkout[]>([])
+
+  const fetchPlanned = useCallback(async () => {
+    try {
+      const res = await fetch('/api/workout/planned')
+      if (res.ok) setPlannedWorkouts(await res.json())
+    } catch { /* non-critical */ }
+  }, [])
+
+  useEffect(() => { fetchPlanned() }, [fetchPlanned])
 
   useEffect(() => {
     fetch('/api/health')
@@ -38,7 +64,7 @@ export default function DashboardPage() {
 
   return (
     <>
-      <div className="flex flex-col min-h-screen pb-28">
+      <div className="flex flex-col min-h-dvh pb-[calc(7rem+env(safe-area-inset-bottom))]">
         {/* Header */}
         <div className="px-5 pt-8 pb-4 flex items-start justify-between">
           <div>
@@ -120,7 +146,15 @@ export default function DashboardPage() {
             </div>
             {/* Workout — full width */}
             <WorkoutCard workout={workout} />
+
+            {/* Planned workouts (today / tomorrow) */}
+            {plannedWorkouts.map(pw => (
+              <PlannedWorkoutCard key={pw.id} workout={pw} />
+            ))}
           </section>
+
+          {/* Food tracker tile */}
+          <FoodTrackerTile entries={dummyEntries} />
 
           {/* Log timeline */}
           <section>
@@ -132,21 +166,55 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Floating mic button */}
-      <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-40">
+      {/* Floating action buttons */}
+      <div className="fixed bottom-[calc(2rem+env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 z-40 flex items-center gap-3">
+        {/* Action menu options — shown above when open */}
+        {showActionMenu && (
+          <div className="absolute bottom-20 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2">
+            <button
+              onClick={() => { setShowActionMenu(false); setShowWorkoutGenerator(true) }}
+              className="flex items-center gap-2 bg-white border border-gray-200 shadow-lg rounded-2xl px-4 py-3 text-sm font-medium text-gray-800 hover:bg-gray-50 active:scale-95 transition-all whitespace-nowrap"
+            >
+              <Dumbbell size={16} className="text-gray-600" />
+              Generate workout
+            </button>
+            <button
+              onClick={() => { setShowActionMenu(false); setShowVoice(true) }}
+              className="flex items-center gap-2 bg-white border border-gray-200 shadow-lg rounded-2xl px-4 py-3 text-sm font-medium text-gray-800 hover:bg-gray-50 active:scale-95 transition-all whitespace-nowrap"
+            >
+              <PenLine size={16} className="text-gray-600" />
+              Log entry
+            </button>
+          </div>
+        )}
+
+        {/* + button */}
         <button
-          onClick={() => setShowVoice(true)}
-          className="w-16 h-16 rounded-full bg-gray-900 hover:bg-gray-800 active:scale-95 shadow-2xl flex items-center justify-center transition-all"
+          onClick={() => setShowActionMenu(v => !v)}
+          className={`w-16 h-16 rounded-full shadow-2xl flex items-center justify-center transition-all active:scale-95 ${showActionMenu ? 'bg-gray-200 rotate-45' : 'bg-gray-900 hover:bg-gray-800'}`}
         >
-          <Mic size={24} className="text-white" />
+          <Plus size={26} className={showActionMenu ? 'text-gray-700' : 'text-white'} />
         </button>
       </div>
+
+      {/* Tap outside action menu to close */}
+      {showActionMenu && (
+        <div className="fixed inset-0 z-30" onClick={() => setShowActionMenu(false)} />
+      )}
 
       {/* Voice overlay */}
       {showVoice && (
         <VoiceOverlay
           onClose={() => setShowVoice(false)}
           onResult={handleVoiceResult}
+        />
+      )}
+
+      {/* Workout generator modal */}
+      {showWorkoutGenerator && (
+        <WorkoutGeneratorModal
+          onClose={() => setShowWorkoutGenerator(false)}
+          onSaved={() => { fetchPlanned(); setShowWorkoutGenerator(false) }}
         />
       )}
     </>
