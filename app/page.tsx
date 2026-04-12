@@ -197,8 +197,8 @@ function WarningsBanner({ warnings }: { warnings: string[] }) {
 // App logo mark — ECG pulse line in a dark rounded square
 function LogoMark() {
   return (
-    <div className="w-9 h-9 bg-gray-900 rounded-xl flex items-center justify-center shrink-0 shadow-sm">
-      <svg viewBox="0 0 24 24" width="18" height="18" fill="none">
+    <div className="w-11 h-11 bg-gray-900 rounded-2xl flex items-center justify-center shrink-0 shadow-md">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none">
         <path d="M2 12h4l2-5 4 10 3-7 2 2h5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     </div>
@@ -314,11 +314,11 @@ export default function DashboardPage() {
         <div className="px-5 pt-8 pb-5">
           <div className="flex items-center justify-between mb-4">
             {/* Logo */}
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-3">
               <LogoMark />
               <div>
-                <p className="text-[11px] font-bold text-gray-900 tracking-widest uppercase leading-none">Trace</p>
-                <p className="text-[9px] text-gray-400 tracking-wider uppercase leading-none mt-0.5">Health Journal</p>
+                <p className="text-base font-bold text-gray-900 tracking-widest uppercase leading-none">Trace</p>
+                <p className="text-[10px] text-gray-400 tracking-wider uppercase leading-none mt-1">Health Journal</p>
               </div>
             </div>
             {/* Avatar + Analyse */}
