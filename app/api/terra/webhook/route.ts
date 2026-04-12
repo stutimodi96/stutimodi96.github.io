@@ -5,11 +5,11 @@ import { NextRequest, NextResponse } from 'next/server'
  *
  * Owned by: Data & Infrastructure — Person C & D
  *
- * Receives health data pushed by Terra from Apple Health and stores it in Neon.
+ * Receives health data pushed by Terra from a fitness tracker (e.g. Apple Health, Garmin) and stores it in Neon.
  *
  * Terra sends different event types in the payload. We care about:
  *   - "activity"   → maps to workouts table
- *   - "daily"      → maps to apple_health_snapshots (HRV, sleep, steps, resting HR)
+ *   - "daily"      → maps to tracker_snapshots (HRV, sleep, steps, resting HR)
  *   - "sleep"      → sleep detail (hours, stages, score)
  *
  * Terra payload shape (simplified):
@@ -27,7 +27,7 @@ import { NextRequest, NextResponse } from 'next/server'
  *    - Map each activity to a workouts row
  *    - Upsert using terra_id to avoid duplicates on re-delivery
  * 4. For type === "daily" or "sleep":
- *    - Upsert into apple_health_snapshots by date
+ *    - Upsert into tracker_snapshots by date
  * 5. Use @neondatabase/serverless for DB writes:
  *    import { neon } from '@neondatabase/serverless'
  *    const sql = neon(process.env.DATABASE_URL!)
@@ -45,9 +45,9 @@ import { NextRequest, NextResponse } from 'next/server'
  *   activity.metadata.start_time                           → workouts.started_at
  *   activity.metadata.end_time                             → workouts.ended_at
  *
- *   daily.heart_rate_data.summary.resting_hr_bpm           → apple_health_snapshots.resting_hr
- *   daily.hrv_data.summary.rmssd_ms                        → apple_health_snapshots.hrv_ms
- *   daily.steps_data.steps                                 → apple_health_snapshots.steps
+ *   daily.heart_rate_data.summary.resting_hr_bpm           → tracker_snapshots.resting_hr
+ *   daily.hrv_data.summary.rmssd_ms                        → tracker_snapshots.hrv_ms
+ *   daily.steps_data.steps                                 → tracker_snapshots.steps
  *   sleep.sleep_durations_data.asleep.duration_asleep_state_seconds / 3600 → sleep_hours
  *   sleep.sleep_durations_data.sleep_efficiency             → sleep_score
  */

@@ -8,14 +8,14 @@ import WorkoutCard from '@/components/WorkoutCard'
 import InsightsBanner from '@/components/InsightsBanner'
 import LogTimeline from '@/components/LogTimeline'
 import VoiceOverlay from '@/components/VoiceOverlay'
-import { dummyHealthSnapshot, dummyWorkout, dummyEntries, dummyInsights } from '@/lib/dummy-data'
+import { dummyTrackerSnapshot, dummyWorkout, dummyEntries, dummyInsights } from '@/lib/dummy-data'
 import { formatDate } from '@/lib/utils'
 
 export default function DashboardPage() {
   const [showVoice, setShowVoice] = useState(false)
   const [lastTranscript, setLastTranscript] = useState<string | null>(null)
 
-  const snap = dummyHealthSnapshot
+  const snap = dummyTrackerSnapshot
 
   function handleVoiceResult(transcript: string) {
     setLastTranscript(transcript)
@@ -62,10 +62,10 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* Apple Health tiles — 2×2 grid */}
+          {/* Tracker tiles — 2×2 grid */}
           <section>
             <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">
-              Apple Health
+              Tracker
             </h2>
             <div className="grid grid-cols-2 gap-2 mb-2">
               <HealthTile

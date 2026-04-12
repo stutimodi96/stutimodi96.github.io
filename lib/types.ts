@@ -21,7 +21,7 @@ export interface Habit {
   active: boolean
 }
 
-export interface HealthSnapshot {
+export interface TrackerSnapshot {
   date: string
   hrv_ms: number
   hrv_avg_14d: number

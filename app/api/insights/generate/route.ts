@@ -12,7 +12,7 @@ import { dummySummary } from '@/lib/dummy-data'
  * Request body:
  *   {
  *     entries: JournalEntry[]          // last 30 days confirmed entries
- *     health_snapshots: HealthSnapshot[] // last 14 days
+ *     health_snapshots: TrackerSnapshot[] // last 14 days
  *     workouts: Workout[]              // last 14 days
  *     habits: Habit[]
  *     rolling_summary?: string         // compressed older history from health_summaries table

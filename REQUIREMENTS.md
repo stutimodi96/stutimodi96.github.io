@@ -9,7 +9,7 @@
 
 ## 1. Problem
 
-Fitness enthusiasts who operate on data have no single place to correlate information across sources. Apple Health knows your HRV and sleep. Your memory knows you took iron with coffee this morning. No system triangulates these to surface a genuinely useful, specific, actionable warning. Generic wellness apps give generic advice. Project Trace gives you the warning that iron absorption is blocked when taken within 30 minutes of coffee — because it *knows* you did exactly that today.
+Fitness enthusiasts who operate on data have no single place to correlate information across sources. Your fitness tracker knows your HRV and sleep. Your memory knows you took iron with coffee this morning. No system triangulates these to surface a genuinely useful, specific, actionable warning. Generic wellness apps give generic advice. Project Trace gives you the warning that iron absorption is blocked when taken within 30 minutes of coffee — because it *knows* you did exactly that today.
 
 ---
 
@@ -17,14 +17,14 @@ Fitness enthusiasts who operate on data have no single place to correlate inform
 
 Fitness enthusiasts who:
 - Track data obsessively (steps, HRV, sleep stages, workouts, supplements, food)
-- Are frustrated by siloed data (Apple Health, food logs, supplement trackers all separate)
+- Are frustrated by siloed data (your fitness tracker, food logs, supplement trackers all separate)
 - Want insights that are *earned* — not generic, not obvious, only shown when truly warranted
 
 ---
 
 ## 3. Core Value Proposition
 
-One voice tap logs everything. The app triangulates your journal with Apple Health data to surface *specific*, *actionable* warnings and insights — delivered in-app and via WhatsApp at end of day.
+One voice tap logs everything. The app triangulates your journal with tracker data to surface *specific*, *actionable* warnings and insights — delivered in-app and via WhatsApp at end of day.
 
 ---
 
@@ -36,7 +36,7 @@ One voice tap logs everything. The app triangulates your journal with Apple Heal
 | Database | Neon (Postgres, serverless) | Free tier, Claude Code MCP integration |
 | AI/LLM | Claude claude-sonnet-4-6 | Insight generation, log parsing, pattern inference |
 | STT | ElevenLabs (Scribe v1) | Speech-to-text for voice log input |
-| Apple Health | Terra API (hackathon tier) | HealthKit bridge without native app |
+| Tracker Input | Terra API (hackathon tier) | Bridges fitness trackers (e.g. Apple Health) without native app |
 | Notifications | Twilio for WhatsApp | Sandbox works without Meta verification |
 | Auth | None (single-user demo) | Eliminates 30+ min of build time |
 
@@ -48,7 +48,7 @@ One voice tap logs everything. The app triangulates your journal with Apple Heal
 
 1. **Voice log with ElevenLabs STT** — tap overlay → speak → ElevenLabs Scribe transcribes → Claude parses into structured entries
 2. **Tentative entry approval** — habits auto-populate as pending; user approves inline
-3. **Apple Health tiles** — HRV, sleep score, steps, resting HR from Terra API on dashboard
+3. **Tracker tiles** — HRV, sleep score, steps, resting HR from Terra API on dashboard
 4. **End-of-day summary** — Claude-generated insights page in app + WhatsApp delivery via Twilio
 
 ### 5.2 Nice-to-Have (If Time Permits)
@@ -86,7 +86,7 @@ created_at      TIMESTAMPTZ
 active          BOOLEAN
 ```
 
-#### `apple_health_snapshots`
+#### `tracker_snapshots`
 ```sql
 id              UUID PRIMARY KEY
 date            DATE
@@ -111,7 +111,7 @@ distance_km     FLOAT         -- null for non-distance workouts (e.g. strength)
 calories_active INT
 avg_hr          INT           -- average heart rate during workout
 max_hr          INT
-source          TEXT          -- always 'apple_health' (via Terra)
+source          TEXT          -- e.g. 'apple_health', 'garmin', etc. (via Terra)
 date            DATE          -- derived from started_at, for easier daily queries
 synced_at       TIMESTAMPTZ
 ```
@@ -173,7 +173,7 @@ Timestamps are first-class data. The time a supplement was taken relative to foo
 
 ---
 
-### 7.3 Apple Health Dashboard Tiles (Terra API)
+### 7.3 Tracker Dashboard Tiles
 
 **Displayed metrics (5 tiles, 2×2 grid + 1 full-width workout row):**
 - HRV (ms) — with 14-day trend sparkline
@@ -187,7 +187,7 @@ Timestamps are first-class data. The time a supplement was taken relative to foo
 **Terra integration flow:**
 - User completes Terra OAuth on first setup (iOS Health app authorization)
 - Terra sends webhook to `/api/terra/webhook` with data payload
-- Daily summary data stored in `apple_health_snapshots`; individual workouts stored in `workouts` table
+- Daily summary data stored in `tracker_snapshots`; individual workouts stored in `workouts` table
 
 **Anomaly highlighting:** If today's value deviates >10% from 14-day average, tile background turns amber. Tooltip explains the deviation.
 
@@ -197,13 +197,13 @@ Timestamps are first-class data. The time a supplement was taken relative to foo
 
 #### Context bundled into every Claude insight call:
 1. Last 30 days of `journal_entries` (confirmed only)
-2. Last 14 days of `apple_health_snapshots`
+2. Last 14 days of `tracker_snapshots`
 3. Last 14 days of `workouts` (type, duration, avg HR, distance, calories)
 4. All active `habits`
 5. Today's confirmed + pending entries
 6. Latest `health_summaries` record (compressed history of older data)
 
-#### Long-term memory (data older than 30 days journal / 14 days Apple Health):
+#### Long-term memory (data older than 30 days journal / 14 days tracker):
 
 **Rolling summary:** A background job runs nightly. It compresses data outside the active window into a structured natural-language summary stored in `health_summaries`. This summary is always included in Claude's insight context.
 
@@ -254,7 +254,7 @@ Timestamps are first-class data. The time a supplement was taken relative to foo
 
 1. **Header:** "Today, [Date]" + floating mic button
 2. **Active Insights Banner** (only if insights exist for today): Amber/yellow strip showing count of active warnings. Tap to expand.
-3. **Apple Health Tiles** (2×2 grid + workout row): HRV, Sleep, Steps, Resting HR, Today's Workout
+3. **Tracker Tiles** (2×2 grid + workout row): HRV, Sleep, Steps, Resting HR, Today's Workout
 4. **Today's Log Timeline**: Chronological list of all entries, newest at top
    - Confirmed entries: white card
    - Pending/tentative entries: amber card with Accept | Edit | Dismiss actions
@@ -282,9 +282,9 @@ Twilio WhatsApp sandbox requires:
 
 > **"This is Riya. She's been training for a half-marathon and obsessively tracks her data."**
 
-1. **Open app:** Show dashboard with pre-seeded Apple Health tiles. HRV tile is amber (19% below average). "Riya woke up and noticed her HRV was off today."
+1. **Open app:** Show dashboard with pre-seeded Tracker tiles. HRV tile is amber (19% below average). "Riya woke up and noticed her HRV was off today."
 
-2. **Voice log:** Tap mic → speak: "Had black coffee at 8, took my iron supplement at 8:15, eggs, had a light jog." Overlay shows waveform → entries appear in timeline. The workout tile also shows Apple Health's record of a 5.4km run synced from Terra — the voice log and sensor data sit side by side.
+2. **Voice log:** Tap mic → speak: "Had black coffee at 8, took my iron supplement at 8:15, eggs, had a light jog." Overlay shows waveform → entries appear in timeline. The workout tile also shows the tracker's record of a 5.4km run synced from Terra — the voice log and sensor data sit side by side.
 
 3. **Insight fires:** Two warnings appear in the banner: "Iron taken 15 minutes after coffee — absorption blocked. Space by 1 hour." And: "You ran in Zone 4 with HRV already 19% below baseline — high overreaching risk. Consider active recovery tomorrow."
 
@@ -333,7 +333,7 @@ These are the two most AI-heavy tracks. Start here because they define the core 
 **Owner:** Person B (Claude active)
 **Tasks:**
 - Claude insight generation endpoint (`/api/insights/generate`):
-  - Bundles context (30d journal, 14d Apple Health, 14d workouts, habits, today, rolling summary)
+  - Bundles context (30d journal, 14d tracker, 14d workouts, habits, today, rolling summary)
   - Includes `fetch_historical_data` tool definition for Claude
   - Returns structured insights (what worked, what was average, warnings)
   - Enforces quality bar (no generic advice)
@@ -357,7 +357,7 @@ These tasks are all setup, config, SQL, and scripting. Do them while Wave 1 is r
 - Create Neon project, save connection string to `.env.local`
 - Write and run all `CREATE TABLE` statements from §6 (copy-paste from this doc — no Claude needed)
 - Write DB query functions / Drizzle ORM schema for all entities
-- Write seed script: 30 days of realistic Apple Health snapshots + workout records + journal entries (see seed data guidance below)
+- Write seed script: 30 days of realistic tracker snapshots + workout records + journal entries (see seed data guidance below)
 - Run seed script and verify data looks correct in Neon console
 
 **External Services Setup**
@@ -368,7 +368,7 @@ These tasks are all setup, config, SQL, and scripting. Do them while Wave 1 is r
 - **`.env.local` template:** Document all required keys so Wave 2 people can run the app immediately
 
 **Seed data guidance (no Claude needed — write directly):**
-- 30 rows in `apple_health_snapshots`: vary HRV between 38–62ms (dip it low 2 days ago for the demo), sleep 5.5–8hrs, steps 4k–14k, resting HR 48–68
+- 30 rows in `tracker_snapshots`: vary HRV between 38–62ms (dip it low 2 days ago for the demo), sleep 5.5–8hrs, steps 4k–14k, resting HR 48–68
 - 15 rows in `workouts`: mix of Running (3–9km, avg HR 145–175), Strength (45–60min), Cycling. Include a Zone 4/5 run on the day HRV is low.
 - 20 rows in `journal_entries`: include iron + coffee logged close together on today's seed date; omega-3 gap; joint pain entries; mood/energy variations
 - 3 rows in `habits`: black coffee ~9am, vitamin D ~8am, omega-3 (with a gap showing it hasn't been confirmed recently)
@@ -384,8 +384,8 @@ When Wave 1 accounts hit limits, these two pick up Claude and build the UI layer
 #### Dashboard & UI
 **Owner:** Person C & Person D (Claude active, new accounts)
 **Tasks:**
-- Home screen layout: header, Apple Health tiles (HRV, Sleep, Steps, Resting HR + workout row), log timeline
-- Wire Apple Health tiles to DB (`apple_health_snapshots` + `workouts`)
+- Home screen layout: header, Tracker tiles (HRV, Sleep, Steps, Resting HR + workout row), log timeline
+- Wire Tracker tiles to DB (`tracker_snapshots` + `workouts`)
 - Today's log timeline: confirmed entries (white card) + pending entries (amber card with Accept | Edit | Dismiss inline)
 - Active insights banner (reads from DB, only shown if insights exist)
 - Siri-style mic overlay (integrate Voice & Parsing recording component)
@@ -402,7 +402,7 @@ All tracks merge. Run the demo script in §10 end-to-end:
 - Voice & Parsing entries appear in Dashboard timeline ✓
 - Insights & Delivery results appear in Dashboard banner ✓
 - WhatsApp message sends and arrives on phone ✓
-- Apple Health tiles show seeded data with correct anomaly highlighting ✓
+- Tracker tiles show seeded data with correct anomaly highlighting ✓
 
 ---
 
@@ -418,7 +418,7 @@ Complete these **before** the 3-hour clock starts:
 - [ ] Next.js repo scaffolded (`npx create-next-app@latest project-trace`)
 - [ ] `.env.local` template with all keys documented
 - [ ] Team alignment on who owns which track
-- [ ] Demo seed data prepared (30 days of Apple Health + journal entries)
+- [ ] Demo seed data prepared (30 days of tracker + journal entries)
 
 ---
 

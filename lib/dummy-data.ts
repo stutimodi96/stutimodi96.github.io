@@ -1,8 +1,8 @@
-import { JournalEntry, HealthSnapshot, Workout, DailySummary, Insight } from './types'
+import { JournalEntry, TrackerSnapshot, Workout, DailySummary, Insight } from './types'
 
 export const TODAY = '2026-04-12'
 
-export const dummyHealthSnapshot: HealthSnapshot = {
+export const dummyTrackerSnapshot: TrackerSnapshot = {
   date: TODAY,
   hrv_ms: 42,
   hrv_avg_14d: 52,
