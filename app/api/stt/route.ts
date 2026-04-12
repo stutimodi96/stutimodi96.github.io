@@ -2,8 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 
 /**
  * POST /api/stt
- * Receives audio blob, forwards to ElevenLabs Scribe v1, returns transcript.
- * API key stays server-side.
+ *
+ * Receives an audio blob from the browser, forwards it to ElevenLabs
+ * Scribe v1 for transcription, and returns the transcript text.
+ *
+ * Keeping the API key server-side so it's never exposed to the client.
  */
 export async function POST(req: NextRequest) {
   const apiKey = process.env.ELEVENLABS_API_KEY
@@ -13,22 +16,27 @@ export async function POST(req: NextRequest) {
 
   const formData = await req.formData()
   const audio = formData.get('audio') as Blob | null
+
   if (!audio) {
-    return NextResponse.json({ error: 'No audio provided' }, { status: 400 })
+    return NextResponse.json({ error: 'No audio file provided' }, { status: 400 })
   }
 
+  // Forward to ElevenLabs Speech-to-Text
   const elevenForm = new FormData()
   elevenForm.append('file', audio, 'recording.webm')
   elevenForm.append('model_id', 'scribe_v1')
 
   const response = await fetch('https://api.elevenlabs.io/v1/speech-to-text', {
     method: 'POST',
-    headers: { 'xi-api-key': apiKey },
+    headers: {
+      'xi-api-key': apiKey,
+    },
     body: elevenForm,
   })
 
   if (!response.ok) {
     const error = await response.text()
+    console.error('ElevenLabs STT error:', error)
     return NextResponse.json({ error: 'Transcription failed', detail: error }, { status: 502 })
   }
 
