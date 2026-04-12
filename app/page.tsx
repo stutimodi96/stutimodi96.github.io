@@ -47,10 +47,12 @@ function shortenName(name: string): string {
   return meaningful.slice(0, 2).join(' ')
 }
 
-// Safe % delta — guards against 0/null avg (no infinity)
-function pctDelta(value: number, avg: number | null | undefined): number | null {
-  if (!avg || avg === 0) return null
-  return Math.round(((value - avg) / avg) * 100)
+// Safe % delta — guards against 0/null/string-zero avg (no infinity)
+function pctDelta(value: number | null | undefined, avg: number | null | undefined): number | null {
+  const v = Number(value)
+  const a = Number(avg)
+  if (!v || !a || a === 0 || !isFinite(v / a)) return null
+  return Math.round(((v - a) / a) * 100)
 }
 
 // Tile traffic-light color based on delta + direction
@@ -348,40 +350,40 @@ export default function DashboardPage() {
               <ChevronRight size={14} className="text-gray-300 shrink-0" />
             </Link>
 
-            <div className="flex gap-2">
-              {/* Supplements */}
-              <div className="flex-1 rounded-xl bg-gray-50 border border-gray-100 px-3 py-3">
-                <div className="flex items-center gap-1.5 mb-2">
-                  <Pill size={11} className="text-purple-500" />
-                  <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Supplements</p>
-                </div>
-                {supplementEntries.length === 0 ? (
-                  <p className="text-xs text-gray-400">None logged</p>
-                ) : (
-                  <div className="flex flex-wrap gap-1">
-                    {supplementEntries.map(e => (
-                      <span key={e.id} className="text-[10px] bg-purple-50 text-purple-700 border border-purple-100 rounded-full px-2 py-0.5">
-                        {shortenName(e.description)}
-                      </span>
-                    ))}
-                  </div>
-                )}
+            {/* Supplements — full width */}
+            <div className="rounded-xl bg-gray-50 border border-gray-100 px-3 py-3">
+              <div className="flex items-center gap-1.5 mb-2">
+                <Pill size={11} className="text-purple-500" />
+                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Supplements</p>
               </div>
+              {supplementEntries.length === 0 ? (
+                <p className="text-xs text-gray-400">None logged</p>
+              ) : (
+                <div className="flex flex-wrap gap-1">
+                  {supplementEntries.map(e => (
+                    <span key={e.id} className="text-[10px] bg-purple-50 text-purple-700 border border-purple-100 rounded-full px-2 py-0.5">
+                      {shortenName(e.description)}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
 
-              {/* Hydration */}
-              <div className="flex-1 rounded-xl bg-gray-50 border border-gray-100 px-3 py-3">
-                <div className="flex items-center gap-1.5 mb-2">
+            {/* Hydration — full width, compact */}
+            <div className="rounded-xl bg-gray-50 border border-gray-100 px-3 py-2">
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="flex items-center gap-1.5">
                   <Droplets size={11} className="text-sky-500" />
                   <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Hydration</p>
                 </div>
-                <div className="flex items-end gap-1 mb-1.5">
-                  <span className="text-xl font-bold text-gray-900 leading-none">{waterLitres > 0 ? waterLitres : '0'}</span>
-                  <span className="text-xs text-gray-400 mb-0.5">/ 3L</span>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-sm font-bold text-gray-900">{waterLitres > 0 ? waterLitres : '0'}</span>
+                  <span className="text-[10px] text-gray-400">/ 3L</span>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
-                  <div className="h-full rounded-full transition-all"
-                    style={{ width: `${Math.min(waterLitres / 3, 1) * 100}%`, backgroundColor: waterLitres >= 3 ? '#22c55e' : '#38bdf8' }} />
-                </div>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
+                <div className="h-full rounded-full transition-all"
+                  style={{ width: `${Math.min(waterLitres / 3, 1) * 100}%`, backgroundColor: waterLitres >= 3 ? '#22c55e' : '#38bdf8' }} />
               </div>
             </div>
           </SectionCard>
