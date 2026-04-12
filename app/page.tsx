@@ -1,10 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { Mic, Plus, Dumbbell, PenLine } from 'lucide-react'
 import HealthTile from '@/components/HealthTile'
 import WorkoutCard from '@/components/WorkoutCard'
+import PlannedWorkoutCard from '@/components/PlannedWorkoutCard'
 import InsightsBanner from '@/components/InsightsBanner'
 import LogTimeline from '@/components/LogTimeline'
 import VoiceOverlay from '@/components/VoiceOverlay'
@@ -12,11 +13,32 @@ import WorkoutGeneratorModal from '@/components/WorkoutGeneratorModal'
 import { dummyTrackerSnapshot, dummyWorkout, dummyEntries, dummyInsights } from '@/lib/dummy-data'
 import { formatDate } from '@/lib/utils'
 
+interface PlannedWorkout {
+  id: string
+  workout_type: string
+  duration_mins: number
+  muscles: string[] | null
+  intensity_zone: number | null
+  equipment: string | null
+  plan_text: string
+  scheduled_date: string
+}
+
 export default function DashboardPage() {
   const [showVoice, setShowVoice] = useState(false)
   const [showWorkoutGenerator, setShowWorkoutGenerator] = useState(false)
   const [showActionMenu, setShowActionMenu] = useState(false)
   const [lastTranscript, setLastTranscript] = useState<string | null>(null)
+  const [plannedWorkouts, setPlannedWorkouts] = useState<PlannedWorkout[]>([])
+
+  const fetchPlanned = useCallback(async () => {
+    try {
+      const res = await fetch('/api/workout/planned')
+      if (res.ok) setPlannedWorkouts(await res.json())
+    } catch { /* non-critical */ }
+  }, [])
+
+  useEffect(() => { fetchPlanned() }, [fetchPlanned])
 
   const snap = dummyTrackerSnapshot
 
@@ -109,6 +131,11 @@ export default function DashboardPage() {
             </div>
             {/* Workout — full width */}
             <WorkoutCard workout={dummyWorkout} />
+
+            {/* Planned workouts (today / tomorrow) */}
+            {plannedWorkouts.map(pw => (
+              <PlannedWorkoutCard key={pw.id} workout={pw} />
+            ))}
           </section>
 
           {/* Log timeline */}
@@ -169,7 +196,7 @@ export default function DashboardPage() {
       {showWorkoutGenerator && (
         <WorkoutGeneratorModal
           onClose={() => setShowWorkoutGenerator(false)}
-          onSaved={() => setShowWorkoutGenerator(false)}
+          onSaved={() => { fetchPlanned(); setShowWorkoutGenerator(false) }}
         />
       )}
     </>

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { X, Mic, Square, Send, RefreshCw, CheckCircle, Dumbbell, Volume2, VolumeX } from 'lucide-react'
+import { X, Mic, Square, Send, RefreshCw, CheckCircle, Dumbbell, Volume2, VolumeX, CalendarDays, CalendarClock } from 'lucide-react'
 import { dummyTrackerSnapshot, dummyWorkout } from '@/lib/dummy-data'
 
 interface Message {
@@ -45,8 +45,7 @@ export default function WorkoutGeneratorModal({ onClose, onSaved }: WorkoutGener
   const [loading, setLoading] = useState(false)
   const [recordingState, setRecordingState] = useState<RecordingState>('idle')
   const [generatedWorkout, setGeneratedWorkout] = useState<GeneratedWorkout | null>(null)
-  const [saved, setSaved] = useState(false)
-  const [markedDone, setMarkedDone] = useState(false)
+  const [scheduled, setScheduled] = useState<'today' | 'tomorrow' | null>(null)
   const [muted, setMuted] = useState(false)
   const mutedRef = useRef(false)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
@@ -150,21 +149,18 @@ export default function WorkoutGeneratorModal({ onClose, onSaved }: WorkoutGener
     await sendMessage('Regenerate a different version of that workout please.')
   }
 
-  async function saveWorkout() {
+  async function scheduleWorkout(when: 'today' | 'tomorrow') {
     if (!generatedWorkout) return
-    // TODO: POST to /api/workout/save → insert into planned_workouts table
-    // For now, simulate success
-    await new Promise(r => setTimeout(r, 600))
-    setSaved(true)
+    const date = new Date()
+    if (when === 'tomorrow') date.setDate(date.getDate() + 1)
+    const scheduled_date = date.toISOString().slice(0, 10)
+    await fetch('/api/workout/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ workout: generatedWorkout, scheduled_date }),
+    })
+    setScheduled(when)
     onSaved()
-  }
-
-  async function markDone() {
-    if (!generatedWorkout) return
-    // TODO: POST to /api/workout/save with status='completed'
-    await new Promise(r => setTimeout(r, 600))
-    setMarkedDone(true)
-    setTimeout(onClose, 800)
   }
 
   async function startRecording() {
@@ -284,34 +280,39 @@ export default function WorkoutGeneratorModal({ onClose, onSaved }: WorkoutGener
       </div>
 
       {/* Workout actions (shown after generation) */}
-      {generatedWorkout && !markedDone && (
-        <div className="px-5 pb-2 flex gap-2">
-          <button
-            onClick={regenerate}
-            disabled={loading}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors"
-          >
-            <RefreshCw size={12} />
-            Regenerate
-          </button>
-          <button
-            onClick={markDone}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-green-200 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 transition-colors"
-          >
-            <CheckCircle size={12} />
-            Mark as done
-          </button>
-          {!saved ? (
-            <button
-              onClick={saveWorkout}
-              className="ml-auto flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gray-900 text-white text-xs font-semibold hover:bg-gray-800 active:scale-95 transition-all"
-            >
-              Save workout
-            </button>
+      {generatedWorkout && (
+        <div className="px-5 pb-2 flex gap-2 flex-wrap">
+          {!scheduled ? (
+            <>
+              <button
+                onClick={regenerate}
+                disabled={loading}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+              >
+                <RefreshCw size={12} />
+                Regenerate
+              </button>
+              <button
+                onClick={() => scheduleWorkout('today')}
+                disabled={loading}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-amber-200 text-xs font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 transition-colors"
+              >
+                <CalendarDays size={12} />
+                Today
+              </button>
+              <button
+                onClick={() => scheduleWorkout('tomorrow')}
+                disabled={loading}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+              >
+                <CalendarClock size={12} />
+                Tomorrow
+              </button>
+            </>
           ) : (
-            <div className="ml-auto flex items-center gap-1.5 px-4 py-2 rounded-xl bg-green-50 border border-green-200 text-xs font-semibold text-green-700">
+            <div className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-green-50 border border-green-200 text-xs font-semibold text-green-700">
               <CheckCircle size={12} />
-              Saved
+              Scheduled for {scheduled === 'today' ? 'today' : 'tomorrow'}
             </div>
           )}
         </div>
