@@ -2,11 +2,15 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import { Plus, Dumbbell, PenLine, BarChart2, ChevronRight, Droplets, Pill, Timer, MapPin, Heart, Flame } from 'lucide-react'
+import {
+  Plus, Dumbbell, PenLine, BarChart2, ChevronRight, Droplets, Pill,
+  Timer, MapPin, Heart, Flame, Moon, Activity, Footprints, Brain,
+  AlertTriangle, ChevronDown, ChevronUp, Utensils, CalendarCheck,
+} from 'lucide-react'
 import VoiceOverlay from '@/components/VoiceOverlay'
 import WorkoutGeneratorModal from '@/components/WorkoutGeneratorModal'
-import { dummyTrackerSnapshot, dummyWorkout, dummyEntries } from '@/lib/dummy-data'
-import { TrackerSnapshot, Workout, JournalEntry, Macros } from '@/lib/types'
+import { dummyTrackerSnapshot, dummyWorkout, dummyEntries, dummyInsights } from '@/lib/dummy-data'
+import { TrackerSnapshot, Workout, JournalEntry, Macros, Insight } from '@/lib/types'
 import { formatDate } from '@/lib/utils'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -21,10 +25,10 @@ interface PlannedWorkout {
   scheduled_date: string
 }
 
-// ── Mood helper ────────────────────────────────────────────────────────────────
+// ── Helpers ────────────────────────────────────────────────────────────────────
 
-const POSITIVE_WORDS = ['good', 'great', 'happy', 'energized', 'focused', 'calm', 'motivated',
-  'excellent', 'positive', 'productive', 'refreshed', 'strong', 'amazing', 'fantastic', 'upbeat']
+const POSITIVE_WORDS = ['good', 'great', 'happy', 'energized', 'focused', 'calm',
+  'motivated', 'excellent', 'positive', 'productive', 'refreshed', 'strong', 'amazing', 'upbeat']
 const NEGATIVE_WORDS = ['sluggish', 'tired', 'stressed', 'anxious', 'sad', 'bad', 'low',
   'exhausted', 'depressed', 'irritable', 'awful', 'terrible', 'fatigued', 'drained', 'rough']
 
@@ -35,12 +39,43 @@ function getMoodColor(text: string): 'green' | 'yellow' | 'red' {
   return 'yellow'
 }
 
-// ── Reusable sub-components ────────────────────────────────────────────────────
+// Shorten supplement/food names: take first meaningful word, strip filler words
+function shortenName(name: string): string {
+  const fillers = ['supplement', 'capsule', 'tablet', 'powder', 'extract', 'complex', 'formula']
+  const words = name.split(/\s+/)
+  const meaningful = words.filter(w => !fillers.includes(w.toLowerCase()))
+  return meaningful.slice(0, 2).join(' ')
+}
 
-function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
+// Safe % delta — guards against 0/null avg (no infinity)
+function pctDelta(value: number, avg: number | null | undefined): number | null {
+  if (!avg || avg === 0) return null
+  return Math.round(((value - avg) / avg) * 100)
+}
+
+// Tile traffic-light color based on delta + direction
+function tileColor(delta: number | null, higherIsBetter: boolean): 'green' | 'yellow' | 'red' | 'neutral' {
+  if (delta == null) return 'neutral'
+  const good = higherIsBetter ? delta : -delta
+  if (good >= -5) return 'green'
+  if (good >= -15) return 'yellow'
+  return 'red'
+}
+
+const TILE_STYLES = {
+  green:   { bg: 'bg-green-50',  border: 'border-green-200',  val: 'text-green-900',  delta: 'text-green-600'  },
+  yellow:  { bg: 'bg-yellow-50', border: 'border-yellow-200', val: 'text-yellow-900', delta: 'text-yellow-600' },
+  red:     { bg: 'bg-red-50',    border: 'border-red-200',    val: 'text-red-900',    delta: 'text-red-600'    },
+  neutral: { bg: 'bg-gray-50',   border: 'border-transparent', val: 'text-gray-900',  delta: 'text-gray-400'   },
+}
+
+// ── Sub-components ─────────────────────────────────────────────────────────────
+
+function SectionCard({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
   return (
     <div className="rounded-2xl border border-gray-100 bg-white overflow-hidden">
-      <div className="px-4 pt-4 pb-2">
+      <div className="px-4 pt-4 pb-2 flex items-center gap-2">
+        <span className="text-gray-400">{icon}</span>
         <h2 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{title}</h2>
       </div>
       <div className="px-4 pb-4 flex flex-col gap-2">{children}</div>
@@ -48,20 +83,24 @@ function SectionCard({ title, children }: { title: string; children: React.React
   )
 }
 
-function MetricTile({ label, value, unit, delta, higherIsBetter }: {
+function MetricTile({ label, value, unit, icon, delta, higherIsBetter }: {
   label: string; value: string | number | null; unit?: string
-  delta?: number | null; higherIsBetter?: boolean
+  icon: React.ReactNode; delta?: number | null; higherIsBetter?: boolean
 }) {
-  const good = delta == null ? null : (higherIsBetter ? delta >= 0 : delta <= 0)
+  const color = tileColor(delta ?? null, higherIsBetter ?? true)
+  const s = TILE_STYLES[color]
   return (
-    <div className="flex-1 rounded-xl bg-gray-50 px-3 py-3">
-      <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">{label}</p>
+    <div className={`flex-1 rounded-xl border px-3 py-3 ${s.bg} ${s.border}`}>
+      <div className="flex items-center gap-1.5 mb-1.5">
+        <span className="text-gray-400 opacity-70">{icon}</span>
+        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">{label}</p>
+      </div>
       <div className="flex items-end gap-1">
-        <span className="text-xl font-bold text-gray-900 leading-none">{value ?? '—'}</span>
-        {unit && value != null && <span className="text-xs text-gray-400 mb-0.5">{unit}</span>}
+        <span className={`text-xl font-bold leading-none ${s.val}`}>{value ?? '—'}</span>
+        {unit && value != null && <span className={`text-xs mb-0.5 ${s.delta}`}>{unit}</span>}
       </div>
       {delta != null && (
-        <p className={`text-[10px] mt-1 font-medium ${good ? 'text-green-600' : 'text-red-500'}`}>
+        <p className={`text-[10px] mt-1 font-medium ${s.delta}`}>
           {delta > 0 ? '+' : ''}{delta}% vs avg
         </p>
       )}
@@ -71,21 +110,17 @@ function MetricTile({ label, value, unit, delta, higherIsBetter }: {
 
 function CaloriesCircle({ calories, goal = 2000 }: { calories: number; goal?: number }) {
   const pct = Math.min(calories / goal, 1)
-  const r = 22
-  const circ = 2 * Math.PI * r
+  const r = 22, circ = 2 * Math.PI * r
   return (
     <div className="relative w-16 h-16 shrink-0">
       <svg width="64" height="64" viewBox="0 0 64 64" className="-rotate-90">
         <circle cx="32" cy="32" r={r} fill="none" stroke="#f3f4f6" strokeWidth="6" />
         <circle cx="32" cy="32" r={r} fill="none"
-          stroke={pct >= 1 ? '#f59e0b' : '#111827'}
-          strokeWidth="6"
-          strokeDasharray={`${circ * pct} ${circ}`}
-          strokeLinecap="round"
-        />
+          stroke={pct >= 1 ? '#f59e0b' : '#111827'} strokeWidth="6"
+          strokeDasharray={`${circ * pct} ${circ}`} strokeLinecap="round" />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-xs font-bold text-gray-900 leading-none">{calories > 0 ? calories : '—'}</span>
+        <span className="text-[11px] font-bold text-gray-900 leading-none">{calories > 0 ? calories : '—'}</span>
         <span className="text-[9px] text-gray-400">kcal</span>
       </div>
     </div>
@@ -102,27 +137,78 @@ function MacroRow({ label, value, unit, color }: { label: string; value: number;
 }
 
 function WorkoutMiniCard({ workout }: { workout: Workout }) {
-  const icon = workout.workout_type?.toLowerCase().includes('run') ? '🏃' : '💪'
+  const icon = workout.workout_type?.toLowerCase().includes('run') ? '🏃' : workout.workout_type?.toLowerCase().includes('swim') ? '🏊' : workout.workout_type?.toLowerCase().includes('cycl') ? '🚴' : '💪'
   const wDate = (workout.started_at || '').slice(0, 10)
   const today = new Date().toISOString().slice(0, 10)
   const diff = Math.round((new Date(today).getTime() - new Date(wDate).getTime()) / 86400000)
   const dateLabel = diff === 0 ? 'Today' : diff === 1 ? 'Yesterday' : `${diff}d ago`
-
   return (
-    <div className="rounded-xl bg-gray-50 px-3 py-3 flex flex-col gap-2">
+    <div className="rounded-xl bg-gray-50 border border-gray-100 px-3 py-3 flex flex-col gap-2">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
-          <span className="text-sm">{icon}</span>
+          <span className="text-base">{icon}</span>
           <span className="text-xs font-semibold text-gray-700 capitalize">{workout.workout_type}</span>
         </div>
-        <span className="text-[10px] text-gray-400">{dateLabel}</span>
+        <span className="text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full">{dateLabel}</span>
       </div>
       <div className="flex gap-3">
         <div className="flex items-center gap-1 text-[10px] text-gray-500"><Timer size={10} />{workout.duration_mins}m</div>
         {workout.distance_km != null && <div className="flex items-center gap-1 text-[10px] text-gray-500"><MapPin size={10} />{workout.distance_km}km</div>}
-        {workout.avg_hr != null && <div className="flex items-center gap-1 text-[10px] text-gray-500"><Heart size={10} />{workout.avg_hr}bpm</div>}
-        {workout.calories_active != null && <div className="flex items-center gap-1 text-[10px] text-gray-500"><Flame size={10} />{workout.calories_active}kcal</div>}
+        {workout.avg_hr != null && <div className="flex items-center gap-1 text-[10px] text-gray-500"><Heart size={10} className="text-red-400" />{workout.avg_hr}bpm</div>}
+        {workout.calories_active != null && <div className="flex items-center gap-1 text-[10px] text-gray-500"><Flame size={10} className="text-orange-400" />{workout.calories_active}kcal</div>}
       </div>
+    </div>
+  )
+}
+
+function WarningsBanner({ insights }: { insights: Insight[] }) {
+  const [expanded, setExpanded] = useState(false)
+  const warnings = insights.filter(i => i.type === 'warning')
+  if (warnings.length === 0) return null
+  return (
+    <div className="rounded-xl border border-amber-200 bg-amber-50 overflow-hidden">
+      <button onClick={() => setExpanded(v => !v)}
+        className="w-full flex items-center gap-3 px-4 py-3 text-left">
+        <AlertTriangle size={15} className="text-amber-600 shrink-0" />
+        <span className="text-sm font-semibold text-amber-800 flex-1">
+          {warnings.length} active {warnings.length === 1 ? 'warning' : 'warnings'}
+        </span>
+        {expanded ? <ChevronUp size={15} className="text-amber-500" /> : <ChevronDown size={15} className="text-amber-500" />}
+      </button>
+      {expanded && (
+        <div className="border-t border-amber-200 divide-y divide-amber-100">
+          {warnings.map((w, i) => (
+            <div key={i} className="px-4 py-3 flex gap-3">
+              <AlertTriangle size={13} className="text-amber-500 mt-0.5 shrink-0" />
+              <p className="text-xs text-amber-900 leading-relaxed">{w.text}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Caricature SVG avatar — abstract geometric person
+function Avatar() {
+  return (
+    <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-gray-200 bg-amber-100 shrink-0">
+      <svg viewBox="0 0 40 40" width="40" height="40">
+        {/* Background */}
+        <circle cx="20" cy="20" r="20" fill="#fef3c7" />
+        {/* Hair */}
+        <ellipse cx="20" cy="13" rx="9" ry="8" fill="#92400e" />
+        <ellipse cx="20" cy="10" rx="9" ry="5" fill="#92400e" />
+        {/* Face */}
+        <circle cx="20" cy="17" r="8" fill="#fcd34d" />
+        {/* Eyes */}
+        <circle cx="17" cy="16" r="1.5" fill="#1f2937" />
+        <circle cx="23" cy="16" r="1.5" fill="#1f2937" />
+        {/* Smile */}
+        <path d="M17 20 Q20 23 23 20" stroke="#92400e" strokeWidth="1.2" fill="none" strokeLinecap="round" />
+        {/* Body */}
+        <ellipse cx="20" cy="34" rx="10" ry="8" fill="#6d28d9" />
+      </svg>
     </div>
   )
 }
@@ -138,6 +224,7 @@ export default function DashboardPage() {
   const [recentWorkouts, setRecentWorkouts] = useState<Workout[]>([dummyWorkout])
   const [plannedWorkouts, setPlannedWorkouts] = useState<PlannedWorkout[]>([])
   const [entries, setEntries] = useState<JournalEntry[]>(dummyEntries)
+  const [insights] = useState<Insight[]>(dummyInsights)
 
   const fetchPlanned = useCallback(async () => {
     try {
@@ -147,31 +234,18 @@ export default function DashboardPage() {
   }, [])
 
   useEffect(() => {
-    fetch('/api/health')
-      .then(r => r.json())
-      .then(d => { if (d.snapshot) setSnap(d.snapshot) })
-      .catch(() => {})
-
-    fetch('/api/workout/recent')
-      .then(r => r.json())
-      .then(d => { if (Array.isArray(d) && d.length) setRecentWorkouts(d) })
-      .catch(() => {})
-
-    fetch('/api/journal/today')
-      .then(r => r.json())
-      .then(d => { if (Array.isArray(d)) setEntries(d) })
-      .catch(() => {})
-
+    fetch('/api/health').then(r => r.json()).then(d => { if (d.snapshot) setSnap(d.snapshot) }).catch(() => {})
+    fetch('/api/workout/recent').then(r => r.json()).then(d => { if (Array.isArray(d) && d.length) setRecentWorkouts(d) }).catch(() => {})
+    fetch('/api/journal/today').then(r => r.json()).then(d => { if (Array.isArray(d)) setEntries(d) }).catch(() => {})
     fetchPlanned()
   }, [fetchPlanned])
 
   // ── Derived: Body Metrics ──────────────────────────────────────────────────
 
-  const pct = (a: number, b: number) => (b ? Math.round(((a - b) / b) * 100) : null)
-  const hrv_delta    = pct(snap.hrv_ms, snap.hrv_avg_14d)
-  const sleep_delta  = pct(snap.sleep_hours, snap.sleep_avg_14d)
-  const steps_delta  = pct(snap.steps, snap.steps_avg_14d)
-  const hr_delta     = pct(snap.resting_hr, snap.resting_hr_avg_30d)
+  const hrv_delta   = pctDelta(snap.hrv_ms, snap.hrv_avg_14d)
+  const sleep_delta = pctDelta(snap.sleep_hours, snap.sleep_avg_14d)
+  const steps_delta = pctDelta(snap.steps, snap.steps_avg_14d)
+  const hr_delta    = pctDelta(snap.resting_hr, snap.resting_hr_avg_30d)
 
   // ── Derived: Nutrition ─────────────────────────────────────────────────────
 
@@ -182,7 +256,7 @@ export default function DashboardPage() {
       protein_g: acc.protein_g + (e.macros?.protein_g ?? 0),
       carbs_g:   acc.carbs_g   + (e.macros?.carbs_g   ?? 0),
       fat_g:     acc.fat_g     + (e.macros?.fat_g     ?? 0),
-      fibre_g:   (acc.fibre_g ?? 0) + (e.macros?.fibre_g ?? 0),
+      fibre_g:   (acc.fibre_g  ?? 0) + (e.macros?.fibre_g ?? 0),
     }),
     { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0, fibre_g: 0 }
   )
@@ -199,29 +273,26 @@ export default function DashboardPage() {
       const ml  = q.match(/(\d+\.?\d*)\s*ml/)
       const l   = q.match(/(\d+\.?\d*)\s*l[^a-z]/)
       const cup = q.match(/(\d+\.?\d*)\s*(cup|glass|bottle)/)
-      if (ml)  total += parseFloat(ml[1]) / 1000
-      else if (l)   total += parseFloat(l[1])
+      if (ml) total += parseFloat(ml[1]) / 1000
+      else if (l) total += parseFloat(l[1])
       else if (cup) total += parseFloat(cup[1]) * 0.25
-      else total += 0.25 // default 250ml per entry
+      else total += 0.25
     }
     return Math.round(total * 10) / 10
   })()
 
   // ── Derived: Mood ──────────────────────────────────────────────────────────
 
-  const moodEntries = entries
-    .filter(e => e.entry_type === 'mood')
+  const moodEntries = entries.filter(e => e.entry_type === 'mood')
     .sort((a, b) => new Date(b.logged_at).getTime() - new Date(a.logged_at).getTime())
   const latestMood = moodEntries[0] ?? null
   const moodColor  = latestMood ? getMoodColor(latestMood.description) : null
-
   const moodStyles = {
     green:  { bg: 'bg-green-50',  border: 'border-green-200',  dot: 'bg-green-500',  text: 'text-green-800'  },
     yellow: { bg: 'bg-yellow-50', border: 'border-yellow-200', dot: 'bg-yellow-400', text: 'text-yellow-800' },
     red:    { bg: 'bg-red-50',    border: 'border-red-200',    dot: 'bg-red-500',    text: 'text-red-800'    },
   }
   const ms = moodColor ? moodStyles[moodColor] : null
-
   const today = new Date().toISOString().slice(0, 10)
 
   return (
@@ -229,12 +300,15 @@ export default function DashboardPage() {
       <div className="flex flex-col min-h-dvh pb-[calc(7rem+env(safe-area-inset-bottom))]">
 
         {/* Header */}
-        <div className="px-5 pt-8 pb-4 flex items-start justify-between">
-          <div>
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Project Trace</p>
-            <h1 className="text-xl font-bold text-gray-900">{formatDate(new Date().toISOString())}</h1>
+        <div className="px-5 pt-8 pb-4 flex items-start justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <Avatar />
+            <div>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Project Trace</p>
+              <h1 className="text-xl font-bold text-gray-900">{formatDate(new Date().toISOString())}</h1>
+            </div>
           </div>
-          <Link href="/analyse" className="flex items-center gap-1.5 text-xs font-medium text-gray-600 bg-gray-100 border border-gray-200 px-3 py-1.5 rounded-full hover:bg-gray-200 transition-colors">
+          <Link href="/analyse" className="flex items-center gap-1.5 text-xs font-medium text-gray-600 bg-gray-100 border border-gray-200 px-3 py-1.5 rounded-full hover:bg-gray-200 transition-colors shrink-0">
             <BarChart2 size={13} />
             Analyse
           </Link>
@@ -242,22 +316,28 @@ export default function DashboardPage() {
 
         <div className="flex flex-col gap-3 px-5">
 
+          {/* Warnings banner */}
+          <WarningsBanner insights={insights} />
+
           {/* ── 1. Body Metrics ───────────────────────────────────────────── */}
-          <SectionCard title="Body Metrics">
+          <SectionCard title="Body Metrics" icon={<Activity size={13} />}>
             <div className="flex gap-2">
-              <MetricTile label="HRV" value={snap.hrv_ms ?? null} unit="ms" delta={hrv_delta} higherIsBetter={true} />
-              <MetricTile label="Sleep" value={snap.sleep_hours ? snap.sleep_hours.toFixed(1) : null} unit="h" delta={sleep_delta} higherIsBetter={true} />
+              <MetricTile label="HRV" value={snap.hrv_ms ?? null} unit="ms"
+                icon={<Activity size={11} />} delta={hrv_delta} higherIsBetter={true} />
+              <MetricTile label="Sleep" value={snap.sleep_hours ? snap.sleep_hours.toFixed(1) : null} unit="h"
+                icon={<Moon size={11} />} delta={sleep_delta} higherIsBetter={true} />
             </div>
             <div className="flex gap-2">
-              <MetricTile label="Steps" value={snap.steps ? snap.steps.toLocaleString() : null} delta={steps_delta} higherIsBetter={true} />
-              <MetricTile label="Resting HR" value={snap.resting_hr ?? null} unit="bpm" delta={hr_delta} higherIsBetter={false} />
+              <MetricTile label="Steps" value={snap.steps ? snap.steps.toLocaleString() : null}
+                icon={<Footprints size={11} />} delta={steps_delta} higherIsBetter={true} />
+              <MetricTile label="Resting HR" value={snap.resting_hr ?? null} unit="bpm"
+                icon={<Heart size={11} />} delta={hr_delta} higherIsBetter={false} />
             </div>
           </SectionCard>
 
           {/* ── 2. Nutrition ──────────────────────────────────────────────── */}
-          <SectionCard title="Nutrition">
-            {/* Food row — tap to open food log */}
-            <Link href="/food" className="rounded-xl bg-gray-50 px-3 py-3 flex items-center gap-3 active:scale-[0.99] transition-all">
+          <SectionCard title="Nutrition" icon={<Utensils size={13} />}>
+            <Link href="/food" className="rounded-xl bg-gray-50 border border-gray-100 px-3 py-3 flex items-center gap-3 active:scale-[0.99] transition-all">
               <CaloriesCircle calories={totals.calories} />
               <div className="flex-1 grid grid-cols-2 gap-x-4 gap-y-1.5">
                 <MacroRow label="Protein" value={totals.protein_g} unit="g" color="text-blue-600" />
@@ -268,9 +348,9 @@ export default function DashboardPage() {
               <ChevronRight size={14} className="text-gray-300 shrink-0" />
             </Link>
 
-            {/* Supplements + Hydration */}
             <div className="flex gap-2">
-              <div className="flex-1 rounded-xl bg-gray-50 px-3 py-3">
+              {/* Supplements */}
+              <div className="flex-1 rounded-xl bg-gray-50 border border-gray-100 px-3 py-3">
                 <div className="flex items-center gap-1.5 mb-2">
                   <Pill size={11} className="text-purple-500" />
                   <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Supplements</p>
@@ -278,20 +358,18 @@ export default function DashboardPage() {
                 {supplementEntries.length === 0 ? (
                   <p className="text-xs text-gray-400">None logged</p>
                 ) : (
-                  <div className="flex flex-col gap-0.5">
-                    {supplementEntries.slice(0, 3).map(e => (
-                      <p key={e.id} className="text-xs text-gray-700 truncate">
-                        {e.description}{e.quantity ? ` · ${e.quantity}` : ''}
-                      </p>
+                  <div className="flex flex-wrap gap-1">
+                    {supplementEntries.map(e => (
+                      <span key={e.id} className="text-[10px] bg-purple-50 text-purple-700 border border-purple-100 rounded-full px-2 py-0.5">
+                        {shortenName(e.description)}
+                      </span>
                     ))}
-                    {supplementEntries.length > 3 && (
-                      <p className="text-[10px] text-gray-400">+{supplementEntries.length - 3} more</p>
-                    )}
                   </div>
                 )}
               </div>
 
-              <div className="flex-1 rounded-xl bg-gray-50 px-3 py-3">
+              {/* Hydration */}
+              <div className="flex-1 rounded-xl bg-gray-50 border border-gray-100 px-3 py-3">
                 <div className="flex items-center gap-1.5 mb-2">
                   <Droplets size={11} className="text-sky-500" />
                   <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Hydration</p>
@@ -302,15 +380,14 @@ export default function DashboardPage() {
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
                   <div className="h-full rounded-full transition-all"
-                    style={{ width: `${Math.min(waterLitres / 3, 1) * 100}%`, backgroundColor: waterLitres >= 3 ? '#22c55e' : '#38bdf8' }}
-                  />
+                    style={{ width: `${Math.min(waterLitres / 3, 1) * 100}%`, backgroundColor: waterLitres >= 3 ? '#22c55e' : '#38bdf8' }} />
                 </div>
               </div>
             </div>
           </SectionCard>
 
           {/* ── 3. Workout ────────────────────────────────────────────────── */}
-          <SectionCard title="Workout">
+          <SectionCard title="Workout" icon={<Dumbbell size={13} />}>
             {recentWorkouts.length > 0
               ? recentWorkouts.map(w => <WorkoutMiniCard key={w.id} workout={w} />)
               : <p className="text-xs text-gray-400 px-1">No recent workouts</p>
@@ -321,14 +398,14 @@ export default function DashboardPage() {
                 <div key={pw.id} className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-3">
                   <div className="flex items-center justify-between mb-1">
                     <div className="flex items-center gap-1.5">
-                      <span className="text-sm">{pw.workout_type === 'running' ? '🏃' : '💪'}</span>
+                      <CalendarCheck size={13} className="text-amber-600" />
                       <span className="text-xs font-semibold text-gray-800 capitalize">{pw.workout_type}</span>
                     </div>
-                    <span className="text-[10px] text-amber-600 font-medium">
+                    <span className="text-[10px] text-amber-600 font-medium bg-amber-100 px-1.5 py-0.5 rounded-full">
                       {pw.scheduled_date === today ? 'Today' : 'Tomorrow'}
                     </span>
                   </div>
-                  <p className="text-[10px] text-gray-500">
+                  <p className="text-[10px] text-gray-500 pl-5">
                     {pw.duration_mins}min · {pw.muscles?.join(', ') ?? `Zone ${pw.intensity_zone}`}
                   </p>
                 </div>
@@ -336,16 +413,16 @@ export default function DashboardPage() {
             ) : (
               <button
                 onClick={() => setShowWorkoutGenerator(true)}
-                className="rounded-xl border border-dashed border-gray-200 px-3 py-3 flex items-center gap-2 text-xs text-gray-400 hover:bg-gray-50 transition-colors w-full"
+                className="rounded-xl border border-dashed border-gray-200 px-3 py-3 flex items-center gap-2 text-xs text-gray-500 hover:bg-gray-50 transition-colors w-full"
               >
-                <Dumbbell size={14} className="text-gray-300" />
-                Generate a workout plan
+                <Dumbbell size={13} className="text-gray-300" />
+                Plan a new workout
               </button>
             )}
           </SectionCard>
 
           {/* ── 4. Mental Health ──────────────────────────────────────────── */}
-          <SectionCard title="Mental Health">
+          <SectionCard title="Mental Health" icon={<Brain size={13} />}>
             {latestMood && ms ? (
               <div className={`rounded-xl px-4 py-3 flex items-center gap-3 border ${ms.bg} ${ms.border}`}>
                 <div className={`w-3 h-3 rounded-full shrink-0 ${ms.dot}`} />
@@ -357,11 +434,9 @@ export default function DashboardPage() {
                 </div>
               </div>
             ) : (
-              <button
-                onClick={() => setShowVoice(true)}
-                className="rounded-xl border border-dashed border-gray-200 px-4 py-3 flex items-center gap-2 text-xs text-gray-400 hover:bg-gray-50 transition-colors w-full"
-              >
-                <div className="w-3 h-3 rounded-full bg-gray-200" />
+              <button onClick={() => setShowVoice(true)}
+                className="rounded-xl border border-dashed border-gray-200 px-4 py-3 flex items-center gap-2 text-xs text-gray-400 hover:bg-gray-50 transition-colors w-full">
+                <Brain size={13} className="text-gray-300" />
                 Log your mood with voice
               </button>
             )}
@@ -376,7 +451,7 @@ export default function DashboardPage() {
           <div className="absolute bottom-20 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2">
             <button onClick={() => { setShowActionMenu(false); setShowWorkoutGenerator(true) }}
               className="flex items-center gap-2 bg-white border border-gray-200 shadow-lg rounded-2xl px-4 py-3 text-sm font-medium text-gray-800 hover:bg-gray-50 active:scale-95 transition-all whitespace-nowrap">
-              <Dumbbell size={16} className="text-gray-600" />Generate workout
+              <Dumbbell size={16} className="text-gray-600" />Plan a new workout
             </button>
             <button onClick={() => { setShowActionMenu(false); setShowVoice(true) }}
               className="flex items-center gap-2 bg-white border border-gray-200 shadow-lg rounded-2xl px-4 py-3 text-sm font-medium text-gray-800 hover:bg-gray-50 active:scale-95 transition-all whitespace-nowrap">
@@ -391,9 +466,7 @@ export default function DashboardPage() {
       </div>
 
       {showActionMenu && <div className="fixed inset-0 z-30" onClick={() => setShowActionMenu(false)} />}
-
       {showVoice && <VoiceOverlay onClose={() => setShowVoice(false)} onResult={() => {}} />}
-
       {showWorkoutGenerator && (
         <WorkoutGeneratorModal
           onClose={() => setShowWorkoutGenerator(false)}
