@@ -25,6 +25,7 @@ export async function POST(req: NextRequest) {
   const elevenForm = new FormData()
   elevenForm.append('file', audio, 'recording.webm')
   elevenForm.append('model_id', 'scribe_v1')
+  elevenForm.append('language_code', 'en')  // pin to English — prevents auto-detect picking wrong language
 
   const response = await fetch('https://api.elevenlabs.io/v1/speech-to-text', {
     method: 'POST',
