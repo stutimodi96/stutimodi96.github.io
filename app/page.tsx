@@ -9,8 +9,8 @@ import {
 } from 'lucide-react'
 import VoiceOverlay from '@/components/VoiceOverlay'
 import WorkoutGeneratorModal from '@/components/WorkoutGeneratorModal'
-import { dummyTrackerSnapshot, dummyWorkout, dummyEntries, dummyInsights } from '@/lib/dummy-data'
-import { TrackerSnapshot, Workout, JournalEntry, Macros, Insight } from '@/lib/types'
+import { dummyTrackerSnapshot, dummyWorkout, dummyEntries } from '@/lib/dummy-data'
+import { TrackerSnapshot, Workout, JournalEntry, Macros } from '@/lib/types'
 import { formatDate } from '@/lib/utils'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -163,9 +163,8 @@ function WorkoutMiniCard({ workout }: { workout: Workout }) {
   )
 }
 
-function WarningsBanner({ insights }: { insights: Insight[] }) {
+function WarningsBanner({ warnings }: { warnings: string[] }) {
   const [expanded, setExpanded] = useState(false)
-  const warnings = insights.filter(i => i.type === 'warning')
   if (warnings.length === 0) return null
   return (
     <div className="rounded-xl border border-amber-200 bg-amber-50 overflow-hidden">
@@ -182,7 +181,7 @@ function WarningsBanner({ insights }: { insights: Insight[] }) {
           {warnings.map((w, i) => (
             <div key={i} className="px-4 py-3 flex gap-3">
               <AlertTriangle size={13} className="text-amber-500 mt-0.5 shrink-0" />
-              <p className="text-xs text-amber-900 leading-relaxed">{w.text}</p>
+              <p className="text-xs text-amber-900 leading-relaxed">{w}</p>
             </div>
           ))}
         </div>
@@ -226,7 +225,7 @@ export default function DashboardPage() {
   const [recentWorkouts, setRecentWorkouts] = useState<Workout[]>([dummyWorkout])
   const [plannedWorkouts, setPlannedWorkouts] = useState<PlannedWorkout[]>([])
   const [entries, setEntries] = useState<JournalEntry[]>(dummyEntries)
-  const [insights] = useState<Insight[]>(dummyInsights)
+  const [warnings, setWarnings] = useState<string[]>([])
 
   const fetchPlanned = useCallback(async () => {
     try {
@@ -239,6 +238,7 @@ export default function DashboardPage() {
     fetch('/api/health').then(r => r.json()).then(d => { if (d.snapshot) setSnap(d.snapshot) }).catch(() => {})
     fetch('/api/workout/recent').then(r => r.json()).then(d => { if (Array.isArray(d) && d.length) setRecentWorkouts(d) }).catch(() => {})
     fetch('/api/journal/today').then(r => r.json()).then(d => { if (Array.isArray(d)) setEntries(d) }).catch(() => {})
+    fetch('/api/warnings').then(r => r.json()).then(d => { if (Array.isArray(d.warnings)) setWarnings(d.warnings) }).catch(() => {})
     fetchPlanned()
   }, [fetchPlanned])
 
@@ -319,7 +319,7 @@ export default function DashboardPage() {
         <div className="flex flex-col gap-3 px-5">
 
           {/* Warnings banner */}
-          <WarningsBanner insights={insights} />
+          <WarningsBanner warnings={warnings} />
 
           {/* ── 1. Body Metrics ───────────────────────────────────────────── */}
           <SectionCard title="Body Metrics" icon={<Activity size={13} />}>

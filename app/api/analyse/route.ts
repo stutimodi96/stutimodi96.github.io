@@ -104,6 +104,17 @@ Rules:
     const jsonMatch = raw.match(/\{[\s\S]*\}/)
     const insights = jsonMatch ? JSON.parse(jsonMatch[0]) : { what_worked: raw, what_was_average: '', warnings: [], key_correlations: [] }
 
+    // Cache results in insights_cache table
+    try {
+      await sql`
+        INSERT INTO insights_cache (id, generated_at, what_worked, what_was_average, warnings, key_correlations)
+        VALUES (gen_random_uuid(), NOW(), ${insights.what_worked ?? ''}, ${insights.what_was_average ?? ''},
+                ${JSON.stringify(insights.warnings ?? [])}::jsonb, ${JSON.stringify(insights.key_correlations ?? [])}::jsonb)
+      `
+    } catch (cacheErr) {
+      console.error('[/api/analyse] cache write failed:', cacheErr)
+    }
+
     return NextResponse.json({
       insights,
       snapshots,
