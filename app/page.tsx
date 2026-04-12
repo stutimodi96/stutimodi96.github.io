@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import VoiceOverlay from '@/components/VoiceOverlay'
 import WorkoutGeneratorModal from '@/components/WorkoutGeneratorModal'
+import LogTimeline from '@/components/LogTimeline'
 import { dummyTrackerSnapshot, dummyWorkout } from '@/lib/dummy-data'
 import { TrackerSnapshot, Workout, JournalEntry, Macros } from '@/lib/types'
 import { formatDate } from '@/lib/utils'
@@ -314,7 +315,7 @@ export default function DashboardPage() {
 
   return (
     <>
-      <div className="flex flex-col min-h-dvh pb-[calc(7rem+env(safe-area-inset-bottom))]">
+      <div className="flex flex-col min-h-dvh pb-[calc(8rem+env(safe-area-inset-bottom))]">
 
         {/* Header */}
         <div className="px-5 pt-8 pb-5">
@@ -483,6 +484,14 @@ export default function DashboardPage() {
               </button>
             )}
           </SectionCard>
+
+          {/* ── 5. Today's Log ────────────────────────────────────────────── */}
+          <section>
+            <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2 px-1">
+              Today&apos;s Log
+            </h2>
+            <LogTimeline initialEntries={entries} />
+          </section>
 
         </div>
       </div>
