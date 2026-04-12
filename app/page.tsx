@@ -349,44 +349,40 @@ export default function DashboardPage() {
               </div>
               <ChevronRight size={14} className="text-gray-300 shrink-0" />
             </Link>
-
-            {/* Supplements — full width */}
-            <div className="rounded-xl bg-gray-50 border border-gray-100 px-3 py-3">
-              <div className="flex items-center gap-1.5 mb-2">
-                <Pill size={11} className="text-purple-500" />
-                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Supplements</p>
-              </div>
-              {supplementEntries.length === 0 ? (
-                <p className="text-xs text-gray-400">None logged</p>
-              ) : (
-                <div className="flex flex-wrap gap-1">
-                  {supplementEntries.map(e => (
-                    <span key={e.id} className="text-[10px] bg-purple-50 text-purple-700 border border-purple-100 rounded-full px-2 py-0.5">
-                      {shortenName(e.description)}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Hydration — full width, compact */}
-            <div className="rounded-xl bg-gray-50 border border-gray-100 px-3 py-2">
-              <div className="flex items-center justify-between mb-1.5">
-                <div className="flex items-center gap-1.5">
-                  <Droplets size={11} className="text-sky-500" />
-                  <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Hydration</p>
-                </div>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-sm font-bold text-gray-900">{waterLitres > 0 ? waterLitres : '0'}</span>
-                  <span className="text-[10px] text-gray-400">/ 3L</span>
-                </div>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
-                <div className="h-full rounded-full transition-all"
-                  style={{ width: `${Math.min(waterLitres / 3, 1) * 100}%`, backgroundColor: waterLitres >= 3 ? '#22c55e' : '#38bdf8' }} />
-              </div>
-            </div>
           </SectionCard>
+
+          {/* ── 3. Supplements ────────────────────────────────────────────── */}
+          <SectionCard title="Supplements" icon={<Pill size={13} />}>
+            {supplementEntries.length === 0 ? (
+              <p className="text-xs text-gray-400 px-1">None logged today</p>
+            ) : (
+              <div className="flex flex-wrap gap-1.5 px-1">
+                {supplementEntries.map(e => (
+                  <span key={e.id} className="text-[11px] bg-purple-50 text-purple-700 border border-purple-100 rounded-full px-2.5 py-1">
+                    {shortenName(e.description)}
+                  </span>
+                ))}
+              </div>
+            )}
+          </SectionCard>
+
+          {/* ── 4. Hydration ──────────────────────────────────────────────── */}
+          <div className="rounded-2xl border border-gray-100 bg-white px-4 py-3">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <Droplets size={13} className="text-sky-500" />
+                <h2 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Hydration</h2>
+              </div>
+              <div className="flex items-baseline gap-1">
+                <span className="text-sm font-bold text-gray-900">{waterLitres > 0 ? waterLitres : '0'}</span>
+                <span className="text-xs text-gray-400">/ 3L</span>
+              </div>
+            </div>
+            <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+              <div className="h-full rounded-full transition-all"
+                style={{ width: `${Math.min(waterLitres / 3, 1) * 100}%`, backgroundColor: waterLitres >= 3 ? '#22c55e' : '#38bdf8' }} />
+            </div>
+          </div>
 
           {/* ── 3. Workout ────────────────────────────────────────────────── */}
           <SectionCard title="Workout" icon={<Dumbbell size={13} />}>
