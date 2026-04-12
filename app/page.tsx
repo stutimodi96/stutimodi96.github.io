@@ -351,36 +351,46 @@ export default function DashboardPage() {
             </Link>
           </SectionCard>
 
-          {/* ── 3. Supplements ────────────────────────────────────────────── */}
-          <SectionCard title="Supplements" icon={<Pill size={13} />}>
-            {supplementEntries.length === 0 ? (
-              <p className="text-xs text-gray-400 px-1">None logged today</p>
-            ) : (
-              <div className="flex flex-wrap gap-1.5 px-1">
-                {supplementEntries.map(e => (
-                  <span key={e.id} className="text-[11px] bg-purple-50 text-purple-700 border border-purple-100 rounded-full px-2.5 py-1">
-                    {shortenName(e.description)}
-                  </span>
-                ))}
+          {/* ── 3. Supplements + Hydration (side by side) ─────────────────── */}
+          <div className="flex gap-3">
+            {/* Supplements */}
+            <div className="flex-1 rounded-2xl border border-gray-100 bg-white overflow-hidden">
+              <div className="px-3 pt-3 pb-2 flex items-center gap-2">
+                <span className="text-gray-400"><Pill size={13} /></span>
+                <h2 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Supplements</h2>
               </div>
-            )}
-          </SectionCard>
+              <div className="px-3 pb-3">
+                {supplementEntries.length === 0 ? (
+                  <p className="text-xs text-gray-400">None logged</p>
+                ) : (
+                  <div className="flex flex-col gap-1.5">
+                    {supplementEntries.map(e => (
+                      <div key={e.id} className="flex items-baseline gap-1">
+                        <span className="text-[11px] font-medium text-purple-700">{shortenName(e.description)}</span>
+                        {e.quantity && (
+                          <span className="text-[10px] text-gray-400">{e.quantity}</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
 
-          {/* ── 4. Hydration ──────────────────────────────────────────────── */}
-          <div className="rounded-2xl border border-gray-100 bg-white px-4 py-3">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
+            {/* Hydration */}
+            <div className="flex-1 rounded-2xl border border-gray-100 bg-white px-3 py-3">
+              <div className="flex items-center gap-2 mb-2">
                 <Droplets size={13} className="text-sky-500" />
                 <h2 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Hydration</h2>
               </div>
-              <div className="flex items-baseline gap-1">
-                <span className="text-sm font-bold text-gray-900">{waterLitres > 0 ? waterLitres : '0'}</span>
+              <div className="flex items-baseline gap-1 mb-2">
+                <span className="text-lg font-bold text-gray-900">{waterLitres > 0 ? waterLitres : '0'}</span>
                 <span className="text-xs text-gray-400">/ 3L</span>
               </div>
-            </div>
-            <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
-              <div className="h-full rounded-full transition-all"
-                style={{ width: `${Math.min(waterLitres / 3, 1) * 100}%`, backgroundColor: waterLitres >= 3 ? '#22c55e' : '#38bdf8' }} />
+              <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+                <div className="h-full rounded-full transition-all"
+                  style={{ width: `${Math.min(waterLitres / 3, 1) * 100}%`, backgroundColor: waterLitres >= 3 ? '#22c55e' : '#38bdf8' }} />
+              </div>
             </div>
           </div>
 
